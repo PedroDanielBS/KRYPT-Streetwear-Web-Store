@@ -818,45 +818,50 @@ function clearUploadedImage() {
 
 // Função Única e Corrigida de Submit
 async function handleProductSubmit(event) {
-    event.preventDefault();
-    
+    event.preventDefault(); // Impede o recarregamento
+    console.log("Iniciando salvamento...");
+
     try {
         const id = document.getElementById('edit-product-id').value || 'krypt-' + Date.now();
-        const fileInput = document.getElementById('form-file-input');
-        
-        let imageUrl = document.getElementById('form-img-url').value;
+        const name = document.getElementById('form-name').value;
+        const price = parseFloat(document.getElementById('form-price').value);
+        const category = document.getElementById('form-category').value;
+        const description = document.getElementById('form-desc').value;
 
-        // SE o usuário selecionou uma nova imagem pelo botão "Upload"
-        if (fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            const storageRef = window.ref(window.storage, 'produtos/' + id + '/' + file.name);
-            
-            // Faz o upload
-            const snapshot = await window.uploadBytes(storageRef, file);
-            // Pega o link público
-            imageUrl = await window.getDownloadURL(snapshot.ref);
+        // Validação básica
+        if (!name || !price) {
+            alert("Preencha Nome e Preço!");
+            return;
         }
 
         const newProduct = {
-            id,
-            name: document.getElementById('form-name').value,
-            price: parseFloat(document.getElementById('form-price').value),
-            category: document.getElementById('form-category').value,
-            description: document.getElementById('form-desc').value,
-            image: imageUrl, // Agora salvamos apenas o link (ex: https://firebasestorage...)
-            images: [imageUrl] // Ajuste conforme seu carrossel
+            id: id,
+            name: name,
+            price: price,
+            category: category,
+            description: description,
+            images: uploadedCarouselImages.length > 0 ? uploadedCarouselImages : [uploadedImageBase64],
+            image: uploadedImageBase64 || document.getElementById('form-img-url').value
         };
 
+        console.log("Objeto pronto para Firebase:", newProduct);
+
+        // Salvando
         await window.setDoc(window.doc(window.db, "produtos", id.toString()), newProduct);
         
-        alert('Produto salvo com sucesso!');
+        console.log("Salvo com sucesso!");
+        showToast('Produto salvo!', 'success');
+
+        // Limpeza
         resetForm();
+        updateAdminTable();
         
     } catch (error) {
-        console.error("Erro ao salvar:", error);
-        alert("Erro ao salvar produto.");
+        console.error("ERRO CRÍTICO NO SUBMIT:", error);
+        alert("Erro ao salvar: " + error.message);
     }
 }
+
 function enterEditMode(productId) {
     const product = products.find(p => p.id === productId);
     if (!product) return;

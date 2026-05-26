@@ -14,15 +14,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script type="module">
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-
-// Inicialize o storage logo após o db
-const storage = getStorage(app); 
-// Exponha para o global para acessar no script.js
-window.storage = storage;
-window.ref = ref;
-window.uploadBytes = uploadBytes;
-window.getDownloadURL = getDownloadURL;
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     
