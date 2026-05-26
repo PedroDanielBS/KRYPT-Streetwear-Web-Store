@@ -528,29 +528,22 @@ function saveStoreConfig() {
 }
 
 // Sincronização com Firebase
-async function saveProductsToStorage() {
-    // 1. Salva no localStorage como fallback rápido
-    localStorage.setItem('krypt_products', JSON.stringify(products));
+async function saveProductToStorage(product) {
+    if (!window.db) throw new Error("Firebase não inicializado");
 
-    // 2. Sincroniza com o Firebase Firestore de forma segura
-    if (window.setDoc && window.doc && window.db) {
-        try {
-            // Em vez de ler o banco e deletar o que "acha" que sumiu,
-            // nós apenas atualizamos ou criamos os produtos que estão na lista ativa.
-            const promises = products.map(product => {
-                return window.setDoc(
-                    window.doc(window.db, "produtos", product.id.toString()), 
-                    product
-                );
-            });
-            
-            // Aguarda todas as gravações terminarem
-            await Promise.all(promises);
-        } catch (error) {
-            console.error("Erro ao salvar no Firestore: ", error);
-        }
+    // Remove campos undefined que causam erro no Firebase
+    const cleanProduct = JSON.parse(JSON.stringify(product));
+
+    try {
+        const docRef = window.doc(window.db, "produtos", product.id.toString());
+        await window.setDoc(docRef, cleanProduct);
+        console.log("Sucesso ao salvar!");
+    } catch (e) {
+        console.error("Falha ao salvar:", e);
+        throw e; // Relança o erro para o Toast capturar
     }
 }
+
 
 // 4. RENDERIZAÇÃO
 function renderCatalog() {
@@ -574,7 +567,7 @@ function renderCatalog() {
             card.innerHTML = `
                 <div class="relative overflow-hidden aspect-square w-full bg-[#121214] flex items-center justify-center p-4">
                     <span class="absolute top-4 left-4 z-10 bg-brandDark/80 backdrop-blur border border-white/10 text-brandAcid text-[10px] font-bold tracking-widest px-2.5 py-1 rounded uppercase">${product.category}</span>
-                    <img src="${product.image}" alt="${product.name}" class="max-h-[220px] object-contain group-hover:scale-105 transition-transform duration-500 filter drop-shadow-[0_5px_15px_rgba(0,0,0,0.4)]">
+                    <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter drop-shadow-[0_5px_15px_rgba(0,0,0,0.4)]">
                     <div class="absolute inset-0 bg-brandDark/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
                         <button onclick="openProductModal('${product.id}')" class="px-5 py-2.5 bg-white text-black font-semibold tracking-wider text-xs uppercase hover:bg-brandAcid transition-colors rounded">Visualizar</button>
                     </div>
@@ -699,13 +692,27 @@ function updateMetrics() {
     if(revenueEl) revenueEl.innerText = formatPrice(totalRevenue);
 }
 
+
+
 function handleImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
+    // --- ADIÇÃO DA TRAVA DE SEGURANÇA ---
+    const MAX_SIZE_MB = 0.8; // Limite de 800KB
+    const fileSizeMB = file.size / (1024 * 1024);
+
+    if (fileSizeMB > MAX_SIZE_MB) {
+        alert(`Arquivo muito grande (${fileSizeMB.toFixed(2)} MB). O limite é ${MAX_SIZE_MB} MB. Escolha uma imagem mais leve.`);
+        event.target.value = ''; // Reseta o input para o usuário tentar de novo
+        return;
+    }
+    // ------------------------------------
+
     const reader = new FileReader();
     reader.onload = function(e) {
         uploadedImageBase64 = e.target.result;
+        
         const imgUrlInput = document.getElementById('form-img-url');
         if (imgUrlInput) {
             imgUrlInput.value = ''; 
@@ -716,7 +723,9 @@ function handleImageUpload(event) {
         if (preview) {
             preview.classList.remove('hidden');
             preview.classList.add('flex');
-            document.getElementById('preview-image-name').innerText = file.name;
+            // Verifica se o elemento de texto existe antes de tentar acessar
+            const nameEl = document.getElementById('preview-image-name');
+            if (nameEl) nameEl.innerText = file.name;
         }
     };
     reader.readAsDataURL(file);
@@ -736,60 +745,57 @@ function clearUploadedImage() {
     }
 }
 
-function handleProductSubmit(event) {
+async function handleProductSubmit(event) {
+    event.preventDefault(); // Impede o reload da página
+
+    // Captura os dados do formulário
+    const id = document.getElementById('edit-product-id').value || 'krypt-' + Date.now();
+    const newProduct = {
+        id: id,
+        name: document.getElementById('form-name').value,
+        price: parseFloat(document.getElementById('form-price').value),
+        category: document.getElementById('form-category').value,
+        description: document.getElementById('form-desc').value,
+        image: document.getElementById('form-img-url').value || uploadedImageBase64,
+        images: document.getElementById('form-additional-imgs').value.split(',').map(s => s.trim())
+    };
+
+    async function handleProductSubmit(event) {
     event.preventDefault();
 
-    const editId = document.getElementById('edit-product-id').value;
-    const name = document.getElementById('form-name').value;
-    const price = parseFloat(document.getElementById('form-price').value);
-    const category = document.getElementById('form-category').value;
-    const desc = document.getElementById('form-desc').value;
+    const imgUrl = document.getElementById('form-img-url').value;
     
-    let imageUrl = document.getElementById('form-img-url').value;
-    if (uploadedImageBase64) {
-        imageUrl = uploadedImageBase64;
-    } else if (!imageUrl) {
-        imageUrl = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop';
+    // Verificação simples de tamanho (exemplo se for base64)
+    if (imgUrl.startsWith('data:image') && imgUrl.length > 500000) { 
+        alert("A imagem é muito grande! Por favor, use um link de imagem menor");
+        return;
     }
+    
+    // ... resto do seu código de salvamento
+}
 
-    const additionalImgsVal = document.getElementById('form-additional-imgs').value;
-    const additionalImages = additionalImgsVal 
-        ? additionalImgsVal.split(',').map(url => url.trim()).filter(url => url.length > 0)
-        : [];
-
-    const allImages = [imageUrl, ...additionalImages];
-
-    if (editId) {
-        const index = products.findIndex(p => p.id === editId);
-        if (index > -1) {
-            products[index] = {
-                ...products[index],
-                name,
-                price,
-                category,
-                description: desc,
-                image: imageUrl,
-                images: allImages
-            };
-            showToast('Produto atualizado com sucesso!', 'success');
-        }
+    // ADICIONA NO ARRAY LOCAL
+    const existingIndex = products.findIndex(p => p.id === id);
+    if (existingIndex > -1) {
+        products[existingIndex] = newProduct;
     } else {
-        const newProduct = {
-            id: 'krypt-' + Date.now(),
-            name,
-            price,
-            category,
-            description: desc,
-            image: imageUrl,
-            images: allImages
-        };
         products.push(newProduct);
-        showToast('Novo produto cadastrado!', 'success');
     }
 
-    saveProductsToStorage();
+    // SALVA NO FIREBASE
+    if (window.setDoc && window.doc && window.db) {
+        try {
+            await window.setDoc(window.doc(window.db, "produtos", id.toString()), newProduct);
+            showToast('Produto salvo com sucesso!', 'success');
+        } catch (error) {
+            console.error("Erro ao enviar para Firebase:", error);
+            showToast('Erro ao salvar no banco.', 'error');
+        }
+    }
+
+    // Limpa o form e atualiza a UI
+    document.getElementById('product-form').reset();
     updateAdminTable();
-    updateMetrics();
     cancelEditMode();
 }
 
