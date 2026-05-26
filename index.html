@@ -14,6 +14,15 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script type="module">
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+// Inicialize o storage logo após o db
+const storage = getStorage(app); 
+// Exponha para o global para acessar no script.js
+window.storage = storage;
+window.ref = ref;
+window.uploadBytes = uploadBytes;
+window.getDownloadURL = getDownloadURL;
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     
@@ -490,11 +499,14 @@
 
             <!-- Conteúdo Split: Esquerda Formulário, Direita Listagem -->
             <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
+            
                 <!-- Formulário (Adicionar / Editar) -->
                 <div class="w-full lg:w-5/12 p-6 border-r border-white/5 overflow-y-auto bg-brandDark/20">
-                    <div class="flex items-center gap-2 mb-6">
+                    <div id="form-action-container" class="flex items-center gap-2 mb-6 hidden">
                         <i data-lucide="plus-circle" class="text-brandAcid w-5 h-5"></i>
-                        <h4 id="form-action-title" class="text-sm font-bold text-white uppercase tracking-wider">Adicionar Novo Item</h4>
+                        <button id="form-action-title" type="button" onclick="resetForm()" class="text-[10px] text-sm font-bold text-white uppercase tracking-wider hover:underline tracking-widest mt-2">
+                        Criar novo produto do zero
+                         </button>
                     </div>
 
                     <form id="product-form" onsubmit="handleProductSubmit(event)" class="space-y-4">
@@ -527,12 +539,15 @@
                         </div>
 
                         <div>
-                            <label class="block mb-2 text-sm font-medium">Imagens do Carrossel (Selecione várias)</label>
-<input type="file" id="carousel-upload" multiple accept="image/*" class="w-full p-2 border rounded">
-<div id="carousel-previews" class="flex gap-2 mt-2 flex-wrap"></div>    
-                        </div>
+    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Imagens do Carrossel</label>
+    <input type="file" id="carousel-file-input" accept="image/*" multiple onchange="handleCarouselUpload(event)" class="hidden">
+    <button type="button" onclick="document.getElementById('carousel-file-input').click()" class="w-full px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 text-xs font-semibold uppercase tracking-wider text-white rounded transition-colors flex items-center justify-center gap-2">
+        <i data-lucide="image-plus" class="w-4 h-4"></i> SELECIONAR IMAGENS
+    </button>
+    <div id="carousel-preview-container" class="flex gap-2 mt-3 flex-wrap"></div>
+</div>
 
-                        <div>
+                       <div class="hidden">
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Imagem Principal</label>
                             <div class="flex gap-2">
                                 <button type="button" onclick="document.getElementById('form-file-input').click()" class="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold uppercase tracking-wider text-white rounded transition-colors flex items-center gap-2">

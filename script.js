@@ -41,6 +41,54 @@ function initApp() {
         if (typeof updateMetrics === 'function') updateMetrics();
     }
 }
+
+// Adicione no topo do script.js
+let uploadedCarouselImages = []; 
+
+// Função para processar o carrossel
+function handleCarouselUpload(event) {
+    const files = Array.from(event.target.files);
+    
+    files.forEach(file => {
+        if (file.size > 800 * 1024) {
+            alert(`A imagem ${file.name} é muito grande.`);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            uploadedCarouselImages.push(e.target.result);
+            renderCarouselPreviews(); // Chama a nova função de render
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function renderCarouselPreviews() {
+    const container = document.getElementById('carousel-preview-container');
+    container.innerHTML = '';
+
+    uploadedCarouselImages.forEach((imgSrc, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relative group w-12 h-12';
+        
+        wrapper.innerHTML = `
+            <img src="${imgSrc}" class="w-full h-full object-cover rounded border border-white/10">
+            <button type="button" onclick="removeCarouselImage(${index})" 
+                    class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                X
+            </button>
+        `;
+        container.appendChild(wrapper);
+    });
+}
+
+function removeCarouselImage(index) {
+    // Remove a imagem do array pelo índice
+    uploadedCarouselImages.splice(index, 1);
+    // Renderiza novamente a lista de miniaturas
+    renderCarouselPreviews();
+}
        // 1. DADOS DE PRODUTOS PADRÃO (MOCKS INICIAIS)
 const DEFAULT_PRODUCTS = [
     {
@@ -376,6 +424,27 @@ function toggleCart() {
     updateCartUI();
 }
 
+function resetForm() {
+    // 1. Resetar título e botões
+    document.getElementById('form-action-title').innerText = 'Adicionar Novo Item';
+    document.getElementById('submit-btn-text').innerText = 'CADASTRAR PRODUTO';
+    document.getElementById('cancel-edit-btn').classList.add('hidden');
+
+    // 2. Limpar campos de texto
+    document.getElementById('product-form').reset();
+    document.getElementById('edit-product-id').value = ''; // Limpa o ID para garantir que um novo seja criado
+
+    // 3. Resetar imagens
+    uploadedCarouselImages = []; // Limpa o array de fotos
+    renderCarouselPreviews(); // Limpa as miniaturas visuais
+    clearUploadedImage(); // Limpa a imagem principal
+    
+    // 4. Resetar estado do input de URL
+    const imgUrlInput = document.getElementById('form-img-url');
+    imgUrlInput.disabled = false;
+    imgUrlInput.value = '';
+}
+
 function toggleAdminModal() {
     const overlay = document.getElementById('admin-modal');
     const authCard = document.getElementById('admin-auth-card');
@@ -567,7 +636,7 @@ function renderCatalog() {
             card.innerHTML = `
                 <div class="relative overflow-hidden aspect-square w-full bg-[#121214] flex items-center justify-center p-4">
                     <span class="absolute top-4 left-4 z-10 bg-brandDark/80 backdrop-blur border border-white/10 text-brandAcid text-[10px] font-bold tracking-widest px-2.5 py-1 rounded uppercase">${product.category}</span>
-                    <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter drop-shadow-[0_5px_15px_rgba(0,0,0,0.4)]">
+                    <img src="${product.images[0]}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                     <div class="absolute inset-0 bg-brandDark/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
                         <button onclick="openProductModal('${product.id}')" class="px-5 py-2.5 bg-white text-black font-semibold tracking-wider text-xs uppercase hover:bg-brandAcid transition-colors rounded">Visualizar</button>
                     </div>
@@ -645,9 +714,11 @@ function updateAdminTable() {
     products.forEach(p => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-white/5 transition-colors border-b border-white/5';
+        
+        // Ajuste feito: object-cover e object-center na tag <img>
         tr.innerHTML = `
             <td class="py-4 px-4 flex items-center gap-3">
-                <img src="${p.image}" alt="${p.name}" class="w-10 h-10 object-contain bg-brandDark rounded p-1 border border-white/5 shrink-0">
+                <img src="${p.image}" alt="${p.name}" class="w-10 h-10 object-cover object-center bg-brandDark rounded border border-white/5 shrink-0">
                 <div class="truncate max-w-[180px]">
                     <span class="font-bold text-white block truncate uppercase">${p.name}</span>
                     <span class="text-[10px] text-gray-500 font-mono block">${p.id}</span>
@@ -745,81 +816,78 @@ function clearUploadedImage() {
     }
 }
 
+// Função Única e Corrigida de Submit
 async function handleProductSubmit(event) {
-    event.preventDefault(); // Impede o reload da página
-
-    // Captura os dados do formulário
-    const id = document.getElementById('edit-product-id').value || 'krypt-' + Date.now();
-    const newProduct = {
-        id: id,
-        name: document.getElementById('form-name').value,
-        price: parseFloat(document.getElementById('form-price').value),
-        category: document.getElementById('form-category').value,
-        description: document.getElementById('form-desc').value,
-        image: document.getElementById('form-img-url').value || uploadedImageBase64,
-        images: document.getElementById('form-additional-imgs').value.split(',').map(s => s.trim())
-    };
-
-    async function handleProductSubmit(event) {
     event.preventDefault();
-
-    const imgUrl = document.getElementById('form-img-url').value;
     
-    // Verificação simples de tamanho (exemplo se for base64)
-    if (imgUrl.startsWith('data:image') && imgUrl.length > 500000) { 
-        alert("A imagem é muito grande! Por favor, use um link de imagem menor");
-        return;
-    }
-    
-    // ... resto do seu código de salvamento
-}
+    try {
+        const id = document.getElementById('edit-product-id').value || 'krypt-' + Date.now();
+        const fileInput = document.getElementById('form-file-input');
+        
+        let imageUrl = document.getElementById('form-img-url').value;
 
-    // ADICIONA NO ARRAY LOCAL
-    const existingIndex = products.findIndex(p => p.id === id);
-    if (existingIndex > -1) {
-        products[existingIndex] = newProduct;
-    } else {
-        products.push(newProduct);
-    }
-
-    // SALVA NO FIREBASE
-    if (window.setDoc && window.doc && window.db) {
-        try {
-            await window.setDoc(window.doc(window.db, "produtos", id.toString()), newProduct);
-            showToast('Produto salvo com sucesso!', 'success');
-        } catch (error) {
-            console.error("Erro ao enviar para Firebase:", error);
-            showToast('Erro ao salvar no banco.', 'error');
+        // SE o usuário selecionou uma nova imagem pelo botão "Upload"
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const storageRef = window.ref(window.storage, 'produtos/' + id + '/' + file.name);
+            
+            // Faz o upload
+            const snapshot = await window.uploadBytes(storageRef, file);
+            // Pega o link público
+            imageUrl = await window.getDownloadURL(snapshot.ref);
         }
+
+        const newProduct = {
+            id,
+            name: document.getElementById('form-name').value,
+            price: parseFloat(document.getElementById('form-price').value),
+            category: document.getElementById('form-category').value,
+            description: document.getElementById('form-desc').value,
+            image: imageUrl, // Agora salvamos apenas o link (ex: https://firebasestorage...)
+            images: [imageUrl] // Ajuste conforme seu carrossel
+        };
+
+        await window.setDoc(window.doc(window.db, "produtos", id.toString()), newProduct);
+        
+        alert('Produto salvo com sucesso!');
+        resetForm();
+        
+    } catch (error) {
+        console.error("Erro ao salvar:", error);
+        alert("Erro ao salvar produto.");
     }
-
-    // Limpa o form e atualiza a UI
-    document.getElementById('product-form').reset();
-    updateAdminTable();
-    cancelEditMode();
 }
-
 function enterEditMode(productId) {
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
-    document.getElementById('form-action-title').innerText = 'Editar Produto';
+    // Configuração básica do UI
+    document.getElementById('form-action-container').classList.remove('hidden');
     document.getElementById('submit-btn-text').innerText = 'ATUALIZAR INFORMAÇÕES';
     document.getElementById('cancel-edit-btn').classList.remove('hidden');
 
+    // Preenchendo campos de texto
     document.getElementById('edit-product-id').value = product.id;
     document.getElementById('form-name').value = product.name;
     document.getElementById('form-price').value = product.price;
     document.getElementById('form-category').value = product.category;
     document.getElementById('form-desc').value = product.description;
-    
-    const additionalImages = product.images ? product.images.slice(1) : [];
-    document.getElementById('form-additional-imgs').value = additionalImages.join(', ');
-    
+
+    // --- LÓGICA DO CARROSSEL ---
+    uploadedCarouselImages = product.images ? [...product.images] : [];
+    const container = document.getElementById('carousel-preview-container');
+    container.innerHTML = ''; // Limpa previews antigos
+
+    // Dentro do enterEditMode, substitua o loop por:
+uploadedCarouselImages = product.images ? [...product.images] : [];
+renderCarouselPreviews();
+
+    // --- LÓGICA DA IMAGEM PRINCIPAL ---
     if (product.image && product.image.startsWith('data:image')) {
         uploadedImageBase64 = product.image;
         document.getElementById('form-img-url').value = '';
         document.getElementById('form-img-url').disabled = true;
+        
         const preview = document.getElementById('image-preview-container');
         preview.classList.remove('hidden');
         preview.classList.add('flex');
@@ -827,6 +895,7 @@ function enterEditMode(productId) {
     } else {
         clearUploadedImage();
         document.getElementById('form-img-url').value = product.image || '';
+        document.getElementById('form-img-url').disabled = false;
     }
 }
 
@@ -838,12 +907,12 @@ function cancelEditMode() {
     document.getElementById('edit-product-id').value = '';
     document.getElementById('form-additional-imgs').value = '';
     document.getElementById('product-form').reset();
-    clearUploadedImage();
+    resetForm();
 }
 
 let productToDeleteId = null;
 
-function deleteProduct(productId) {
+async function deleteProduct(productId) {
     productToDeleteId = productId;
     const modal = document.getElementById('confirm-modal');
     const inner = modal.querySelector('div');
@@ -852,18 +921,29 @@ function deleteProduct(productId) {
     inner.classList.remove('scale-95');
     document.body.classList.add('no-scroll');
     
+    // Atualize o evento de clique para ser mais robusto
     document.getElementById('confirm-delete-btn').onclick = async () => {
         if (productToDeleteId) {
-            products = products.filter(p => p.id !== productToDeleteId);
-            if (window.deleteDoc && window.doc && window.db) {
-                await window.deleteDoc(window.doc(window.db, "produtos", productToDeleteId.toString()));
+            try {
+                // 1. Remove do Firebase primeiro
+                if (window.deleteDoc && window.doc && window.db) {
+                    await window.deleteDoc(window.doc(window.db, "produtos", productToDeleteId.toString()));
+                }
+                
+                // 2. Remove do array local imediatamente para refletir na UI
+                products = products.filter(p => p.id !== productToDeleteId);
+                
+                // 3. Atualiza tudo após a confirmação
+                updateAdminTable();
+                renderCatalog();
+                renderFeaturedProduct();
+                updateMetrics();
+                
+                showToast('Produto removido com sucesso.', 'success');
+            } catch (error) {
+                console.error("Erro ao deletar:", error);
+                showToast('Erro ao excluir do banco.', 'error');
             }
-            await saveProductsToStorage();
-            updateAdminTable();
-            renderCatalog();
-            renderFeaturedProduct();
-            updateMetrics();
-            showToast('Produto removido com sucesso.', 'success');
         }
         closeConfirmModal();
     };
