@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KRYPT — Minimalist Streetwear Studio</title>
+    <!-- Tailwind CSS para estilização moderna e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Syne (Títulos brutais) & Plus Jakarta Sans (Texto limpo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons para interface rica -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyBxAYW7GE8JsixsOYXJOsYa9A9-3q1v80c",
+        authDomain: "krypt-streetwear-web-store.firebaseapp.com",
+        projectId: "krypt-streetwear-web-store",
+        storageBucket: "krypt-streetwear-web-store.firebasestorage.app",
+        messagingSenderId: "433345028539",
+        appId: "1:433345028539:web:dae7bee693678eecc2a49e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    // Exporta para o escopo global
+    window.db = db;
+    window.colRef = collection(db, "produtos");
+    window.setDoc = setDoc;
+    window.doc = doc;
+    window.deleteDoc = deleteDoc;
+    window.getDocs = getDocs;
+    window.onSnapshot = onSnapshot;
+</script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        syne: ['Syne', 'sans-serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brandDark: '#0A0A0B',
+                        brandCard: '#131316',
+                        brandAcid: '#D4FC34',
+                        brandGray: '#8E8E93',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'marquee': 'marquee 25s linear infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                        marquee: {
+                            '0%': { transform: 'translateX(0%)' },
+                            '100%': { transform: 'translateX(-50%)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar para manter estética limpa */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0A0B;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272A;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #D4FC34;
+        }
+        
+        .glow-acid:hover {
+            box-shadow: 0 0 15px rgba(212, 252, 52, 0.4);
+        }
+        
+        /* Prevenir scroll quando modal aberto */
+        .no-scroll {
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-brandDark text-gray-100 font-sans min-h-screen selection:bg-brandAcid selection:text-black">
+
+    <!-- NOTIFICAÇÕES (TOASTS) -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- HEADER / NAVIGATION -->
+    <header class="sticky top-0 z-40 bg-brandDark/85 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <!-- Brand Logo -->
+            <a href="#" onclick="filterCategory('all')" class="font-syne text-2xl tracking-widest font-extrabold text-white flex items-center gap-1.5 group">
+                KRYPT<span class="text-brandAcid group-hover:scale-125 transition-transform duration-300 inline-block">™</span>
+            </a>
+
+            <!-- Nav Links (Desktop) -->
+            <nav class="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide text-gray-400">
+                <a href="#catalogo" class="hover:text-white transition-colors">COLEÇÕES</a>
+                <a href="#manifesto" class="hover:text-white transition-colors">MANIFESTO</a>
+                <a href="#tecnologia" class="hover:text-white transition-colors">FIO 20.1</a>
+            </nav>
+
+            <!-- Ações -->
+            <div class="flex items-center gap-4">
+                <!-- Painel Admin Link -->
+                <button onclick="toggleAdminModal()" class="p-2.5 rounded-full border border-white/10 hover:border-brandAcid text-gray-300 hover:text-brandAcid transition-all duration-300 relative group" title="Painel Admin">
+                    <i data-lucide="lock" class="w-4 h-4"></i>
+                    <span class="absolute right-0 -bottom-8 bg-brandCard text-[10px] text-brandAcid px-2 py-0.5 rounded border border-brandAcid/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap">ADMIN PANEL</span>
+                </button>
+
+                <!-- Carrinho Toggle -->
+                <button onclick="toggleCart()" class="p-2.5 rounded-full border border-white/10 hover:border-brandAcid text-gray-300 hover:text-brandAcid transition-all duration-300 relative">
+                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                    <span id="cart-badge" class="absolute -top-1 -right-1 bg-brandAcid text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center scale-0 transition-transform duration-300">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="relative min-h-[85vh] flex items-center justify-center overflow-hidden border-b border-white/5 px-6">
+        <!-- Background Grid Effect -->
+        <div class="absolute inset-0 bg-[linear-gradient(to_right,#1f1f23_1px,transparent_1px),linear-gradient(to_bottom,#1f1f23_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30"></div>
+        
+        <!-- Background Decorative Circles -->
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-brandAcid/10 rounded-full blur-[100px] pointer-events-none"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+        <div class="max-w-5xl mx-auto text-center relative z-10 animate-fade-in flex flex-col items-center">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brandAcid/20 bg-brandAcid/5 text-brandAcid text-xs font-semibold tracking-widest uppercase mb-6 animate-slide-up">
+                <span class="w-1.5 h-1.5 rounded-full bg-brandAcid animate-pulse"></span>
+                DROP 01 // SILENT NOISE
+            </span>
+            
+            <h1 class="font-syne text-5xl md:text-8xl font-black text-white tracking-tight leading-none mb-6 animate-slide-up uppercase">
+                A AUSÊNCIA<br><span class="text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-400 to-brandAcid">É A PRESENÇA</span>
+            </h1>
+            
+            <p class="text-gray-400 text-base md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-light animate-slide-up [animation-delay:200ms] opacity-0" style="animation-fill-mode: forwards;">
+                Camisetas oversized brutas criadas com algodão heavyweight de 260GSM. Estruturadas para corpos urbanos que transitam no absoluto minimalismo.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center w-full max-w-sm animate-slide-up [animation-delay:400ms] opacity-0" style="animation-fill-mode: forwards;">
+                <a href="#catalogo" class="w-full sm:w-auto px-8 py-4 bg-brandAcid text-black font-semibold tracking-wide uppercase hover:bg-white transition-all duration-300 flex items-center justify-center gap-2 glow-acid rounded">
+                    EXPLORAR DROP
+                    <i data-lucide="arrow-down-right" class="w-4 h-4"></i>
+                </a>
+                <a href="#manifesto" class="w-full sm:w-auto px-8 py-4 border border-white/10 hover:border-white text-white font-semibold tracking-wide uppercase transition-all duration-300 rounded">
+                    CONCEITO
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- MARQUEE (TEXTO EM MOVIMENTO) -->
+    <section class="bg-brandAcid text-black py-4 overflow-hidden select-none border-y border-black font-syne font-bold uppercase tracking-widest text-sm md:text-lg">
+        <div class="flex whitespace-nowrap animate-marquee">
+            <span class="mx-4 flex items-center gap-4">KRYPT™ STUDIO <span class="text-xs">✦</span> FREE SHIPPING ACROSS BRAZIL <span class="text-xs">✦</span> 260GSM HEAVYWEIGHT COTTON <span class="text-xs">✦</span> MINIMALIST ESSENTIALS <span class="text-xs">✦</span></span>
+            <span class="mx-4 flex items-center gap-4">KRYPT™ STUDIO <span class="text-xs">✦</span> FREE SHIPPING ACROSS BRAZIL <span class="text-xs">✦</span> 260GSM HEAVYWEIGHT COTTON <span class="text-xs">✦</span> MINIMALIST ESSENTIALS <span class="text-xs">✦</span></span>
+        </div>
+    </section>
+
+    <!-- SEÇÃO PRODUTOS / CATÁLOGO -->
+    <section id="catalogo" class="py-24 px-6 max-w-7xl mx-auto scroll-mt-20">
+        <div class="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+            <div>
+                <span class="text-brandAcid font-syne uppercase tracking-wider text-sm font-semibold">COLEÇÃO ATIVA</span>
+                <h2 class="font-syne text-3xl md:text-5xl font-black text-white uppercase mt-2">ESSENCIAIS DISPONÍVEIS</h2>
+            </div>
+            
+            <!-- FILTROS DE CATEGORIA -->
+            <div class="flex flex-wrap gap-2" id="category-filters">
+                <!-- Gerado dinamicamente via JS -->
+            </div>
+        </div>
+
+        <!-- Grade de Produtos -->
+        <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <!-- Os cards dos produtos serão injetados via JS aqui -->
+        </div>
+
+        <!-- Sem produtos fallback -->
+        <div id="no-products" class="hidden flex-col items-center justify-center py-20 text-center">
+            <i data-lucide="package-open" class="w-16 h-16 text-gray-600 mb-4 animate-bounce"></i>
+            <h3 class="text-xl font-bold text-white mb-1">Nenhum produto encontrado</h3>
+            <p class="text-gray-400 text-sm max-w-xs">Tente selecionar outro filtro ou adicione novos produtos no Painel Admin.</p>
+        </div>
+    </section>
+
+    <!-- MANIFESTO / LOOKBOOK -->
+    <section id="manifesto" class="py-24 border-t border-white/5 bg-brandCard/40 relative overflow-hidden px-6">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div class="relative group aspect-square lg:aspect-[4/5] bg-neutral-900 rounded-lg overflow-hidden border border-white/10">
+                <!-- Estilo Visual Streetwear placeholder -->
+                <div id="featured-product-banner-img" class="absolute inset-0 flex items-center justify-center bg-[#151518] bg-cover bg-center transition-transform duration-500 group-hover:scale-105">
+                    <svg class="w-3/4 h-3/4 text-white/5 absolute transform rotate-12" viewBox="0 0 100 100" fill="currentColor">
+                        <polygon points="50,15 90,85 10,85"/>
+                    </svg>
+                    <div class="text-center z-10 px-6">
+                        <span class="font-syne text-9xl font-black text-white/5 tracking-tighter absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">K</span>
+                        <h3 class="font-syne text-2xl font-bold text-white mb-2 tracking-wide">SILENT NOISE®</h3>
+                        <p class="text-brandAcid text-xs tracking-widest font-mono">MODELAGEM AUTORAL • COTTON 100%</p>
+                    </div>
+                </div>
+                <div class="absolute bottom-6 left-6 right-6 p-6 bg-brandDark/90 backdrop-blur border border-white/10 rounded z-20">
+                    <span class="text-brandAcid text-[10px] font-mono tracking-widest block mb-1">PRODUTO EM DESTAQUE</span>
+                    <h4 id="featured-product-title" class="text-lg font-bold text-white uppercase font-syne mb-2">RAW COAL OVERSIZED TEE</h4>
+                    <p id="featured-product-desc" class="text-gray-400 text-xs font-light">Corte quadrado, ombros caídos e gola de 3cm que não laceia.</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col justify-center">
+                <span class="text-brandAcid font-syne uppercase tracking-wider text-sm font-semibold">ARQUITETURA VESTÍVEL</span>
+                <h2 class="font-syne text-3xl md:text-5xl font-black text-white uppercase mt-2 mb-8 leading-tight">MOLDE PERFEITO. ESTRUTURA SEM IGUAL.</h2>
+                
+                <div class="space-y-8">
+                    <div class="flex gap-4">
+                        <div class="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-brandAcid shrink-0">
+                            <i data-lucide="layers" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold text-white uppercase">Algodão Heavyweight 260GSM</h4>
+                            <p class="text-gray-400 text-sm mt-1">O dobro do peso de uma camiseta tradicional. Caimento pesado e estruturado que valoriza a silhueta streetwear.</p>
+                        </div>
+                    </div>
+
+                    <div id="tecnologia" class="flex gap-4">
+                        <div class="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-brandAcid shrink-0">
+                            <i data-lucide="scissors" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold text-white uppercase">Corte Boxy Autoral</h4>
+                            <p class="text-gray-400 text-sm mt-1">Largura ideal, comprimento ligeiramente menor para evitar o caimento "balão". O clássico shape quadrado do streetwear global.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-brandAcid shrink-0">
+                            <i data-lucide="infinity" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold text-white uppercase">Costura Reforçada & Gola 3cm</h4>
+                            <p class="text-gray-400 text-sm mt-1">Gola alta e grossa em ribana canelada 2x1 com pesponto duplo. Mantém-se perfeitamente estruturada mesmo após infinitas lavagens.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-brandDark border-t border-white/5 py-16 px-6">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+            <div class="md:col-span-2">
+                <a href="#" class="font-syne text-3xl tracking-widest font-extrabold text-white flex items-center gap-1.5 mb-6">
+                    KRYPT<span class="text-brandAcid">™</span>
+                </a>
+                <p class="text-gray-400 text-sm max-w-sm leading-relaxed font-light mb-6">
+                    Expressão brutalista e minimalista em formato de essenciais urbanos. Desenhado e manufaturado de forma independente.
+                </p>
+                <div class="flex gap-4">
+                    <a href="#" class="w-10 h-10 rounded-full border border-white/10 hover:border-brandAcid hover:text-brandAcid flex items-center justify-center text-gray-400 transition-colors">
+                        <i data-lucide="instagram" class="w-4 h-4"></i>
+                    </a>
+                    <a href="#" class="w-10 h-10 rounded-full border border-white/10 hover:border-brandAcid hover:text-brandAcid flex items-center justify-center text-gray-400 transition-colors">
+                        <i data-lucide="twitter" class="w-4 h-4"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-6">LINKS RÁPIDOS</h4>
+                <ul class="space-y-3 text-sm text-gray-400">
+                    <li><a href="#catalogo" class="hover:text-white transition-colors">Todos os Drops</a></li>
+                    <li><a href="#manifesto" class="hover:text-white transition-colors">Nosso Manifesto</a></li>
+                    <li><a href="#tecnologia" class="hover:text-white transition-colors">Guia de Tamanhos</a></li>
+                    <li><a href="javascript:void(0)" onclick="toggleAdminModal()" class="hover:text-brandAcid text-xs flex items-center gap-1.5 transition-colors"><i data-lucide="lock" class="w-3.5 h-3.5"></i> Acesso Restrito</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-6 font-syne">NEWSLETTER</h4>
+                <p class="text-gray-400 text-xs mb-4">Inscreva-se para obter acesso antecipado ao Drop 02.</p>
+                <form onsubmit="event.preventDefault(); showToast('Inscrição realizada! Fique atento.', 'success'); this.reset();" class="flex gap-2">
+                    <input type="email" placeholder="seu@email.com" required class="bg-white/5 border border-white/10 px-4 py-2 text-sm text-white placeholder-gray-500 rounded focus:outline-none focus:border-brandAcid flex-1">
+                    <button type="submit" class="bg-brandAcid hover:bg-white text-black p-2.5 rounded transition-colors duration-300">
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
+            <p>© 2026 KRYPT™ Studio. Todos os direitos reservados.</p>
+            <p>Criado para amantes da estética urbana.</p>
+        </div>
+    </footer>
+
+    <!-- PRODUCT DETAIL MODAL (MODAL DETALHE DE PRODUTO) -->
+    <div id="product-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 min-h-screen bg-black/80 opacity-0 pointer-events-none transition-opacity duration-300 overflow-y-auto backdrop-blur-sm">
+        <!-- Close overlay click -->
+        <div class="absolute inset-0" onclick="closeProductModal()"></div>
+        
+        <div class="bg-brandCard border border-white/10 w-full max-w-4xl rounded-lg overflow-hidden relative z-10 flex flex-col md:flex-row max-h-[90vh] md:max-h-none overflow-y-auto transform scale-95 transition-transform duration-300">
+            <button onclick="closeProductModal()" class="absolute top-4 right-4 z-30 w-10 h-10 rounded-full bg-brandDark/85 border border-white/10 flex items-center justify-center text-white hover:text-brandAcid transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <!-- Imagem do Modal com Carrossel de Imagens -->
+            <div class="w-full md:w-1/2 bg-[#121214] flex flex-col items-center justify-center p-6 relative min-h-[350px]">
+                <div class="absolute inset-0 flex items-center justify-center text-white/5 pointer-events-none">
+                    <i data-lucide="shirt" class="w-48 h-48 opacity-10"></i>
+                </div>
+                
+                <!-- Área Principal do Slide -->
+                <div class="relative w-full flex-1 flex items-center justify-center overflow-hidden min-h-[280px]">
+                    <!-- Seta Esquerda -->
+                    <button onclick="prevModalImage(event)" class="absolute left-2 z-20 w-8 h-8 rounded-full bg-brandDark/80 border border-white/10 flex items-center justify-center text-white hover:text-brandAcid transition-colors">
+                        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                    </button>
+                    
+                    <!-- Imagem Principal -->
+                    <img id="modal-product-img" src="" alt="" class="max-h-[300px] object-contain relative z-10 filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-all duration-300 transform scale-100">
+                    
+                    <!-- Seta Direita -->
+                    <button onclick="nextModalImage(event)" class="absolute right-2 z-20 w-8 h-8 rounded-full bg-brandDark/80 border border-white/10 flex items-center justify-center text-white hover:text-brandAcid transition-colors">
+                        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                
+                <!-- Indicadores de Miniaturas -->
+                <div id="modal-thumbnails" class="flex gap-2 mt-4 justify-center overflow-x-auto w-full max-w-xs py-1">
+                    <!-- Injetado dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Detalhes do Produto -->
+            <div class="w-full md:w-1/2 p-8 flex flex-col justify-between">
+                <div>
+                    <span id="modal-product-category" class="text-brandAcid text-xs font-mono tracking-widest uppercase">CATG</span>
+                    <h3 id="modal-product-title" class="font-syne text-2xl md:text-3xl font-black text-white uppercase mt-1 mb-3">NOME DO PRODUTO</h3>
+                    <p id="modal-product-price" class="text-xl font-bold text-white mb-6">R$ 0,00</p>
+                    
+                    <hr class="border-white/5 mb-6">
+
+                    <p id="modal-product-description" class="text-gray-400 text-sm leading-relaxed font-light mb-6">
+                        Descrição detalhada do produto...
+                    </p>
+
+                    <!-- Seleção de Tamanho -->
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs font-bold text-white tracking-wider uppercase">SELECIONE O TAMANHO</span>
+                            <a href="#tecnologia" onclick="closeProductModal()" class="text-brandAcid hover:underline text-xs">GUIA DE TAMANHOS</a>
+                        </div>
+                        <div class="flex gap-2" id="size-selector-container">
+                            <button onclick="selectSize('P')" class="size-btn px-4 py-2.5 border border-white/10 hover:border-brandAcid text-sm font-semibold rounded bg-brandDark text-white transition-all duration-300">P</button>
+                            <button onclick="selectSize('M')" class="size-btn px-4 py-2.5 border border-white/10 hover:border-brandAcid text-sm font-semibold rounded bg-brandDark text-white transition-all duration-300">M</button>
+                            <button onclick="selectSize('G')" class="size-btn px-4 py-2.5 border border-white/10 hover:border-brandAcid text-sm font-semibold rounded bg-brandDark text-white transition-all duration-300">G</button>
+                            <button onclick="selectSize('GG')" class="size-btn px-4 py-2.5 border border-white/10 hover:border-brandAcid text-sm font-semibold rounded bg-brandDark text-white transition-all duration-300">GG</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botão de adicionar -->
+                <div>
+                    <button id="modal-add-btn" onclick="addCurrentToCart()" class="w-full py-4 bg-brandAcid text-black font-bold tracking-wider uppercase hover:bg-white transition-all duration-300 flex items-center justify-center gap-2 rounded glow-acid">
+                        <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                        ADICIONAR AO CARRINHO
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CART SIDEBAR (CARRINHO DE COMPRAS) -->
+    <div id="cart-sidebar" class="fixed inset-0 z-50 bg-black/60 opacity-0 pointer-events-none transition-opacity duration-300">
+        <!-- Close overlay -->
+        <div class="absolute inset-0" onclick="toggleCart()"></div>
+
+        <!-- ID VINCULADO CORRETAMENTE -->
+        <div id="cart-panel" class="absolute right-0 top-0 bottom-0 w-full max-w-md bg-brandCard border-l border-white/10 flex flex-col justify-between shadow-2xl transform translate-x-full transition-transform duration-300">
+            <!-- Header do Carrinho -->
+            <div class="p-6 border-b border-white/5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="shopping-bag" class="text-brandAcid w-5 h-5"></i>
+                    <h3 class="font-syne text-lg font-bold text-white uppercase">Seu Carrinho</h3>
+                    <span id="cart-total-items" class="bg-white/5 text-gray-400 text-xs px-2.5 py-0.5 rounded-full font-mono">0</span>
+                </div>
+                <button onclick="toggleCart()" class="text-gray-400 hover:text-white transition-colors p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Lista de Itens -->
+            <div id="cart-items-container" class="p-6 overflow-y-auto flex-1 space-y-6">
+                <!-- Injetado dinamicamente via JS -->
+            </div>
+
+            <!-- Footer do Carrinho (Resumos e Ações) -->
+            <div class="p-6 border-t border-white/5 bg-brandDark/40">
+                <div class="space-y-3 mb-6 text-sm">
+                    <div class="flex justify-between text-gray-400">
+                        <span>Subtotal</span>
+                        <span id="cart-subtotal" class="font-mono text-white">R$ 0,00</span>
+                    </div>
+                    <div class="flex justify-between text-gray-400">
+                        <span>Frete</span>
+                        <span class="text-brandAcid font-mono uppercase text-xs font-semibold">Grátis</span>
+                    </div>
+                    <hr class="border-white/5 my-1">
+                    <div class="flex justify-between text-white font-bold text-base">
+                        <span>TOTAL</span>
+                        <span id="cart-grandtotal" class="text-brandAcid font-mono">R$ 0,00</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button onclick="checkoutCart()" class="w-full py-4 bg-brandAcid text-black font-bold tracking-wider uppercase hover:bg-white transition-all duration-300 flex items-center justify-center gap-2 rounded">
+                        <span>ENVIAR VIA WHATSAPP</span>
+                        <i data-lucide="message-square" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="clearCart()" class="w-full py-2.5 text-xs text-gray-500 hover:text-red-400 transition-colors tracking-widest uppercase">
+                        Limpar Carrinho
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN MODAL (PAINEL ADMIN) -->
+    <div id="admin-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 opacity-0 pointer-events-none transition-opacity duration-300">
+        <!-- Close Overlay -->
+        <div class="absolute inset-0" onclick="toggleAdminModal()"></div>
+
+        <!-- Tela de Autenticação Admin -->
+        <div id="admin-auth-card" class="bg-brandCard border border-white/10 p-8 w-full max-w-md rounded-lg relative z-10 transform scale-95 transition-transform duration-300">
+            <button onclick="toggleAdminModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 bg-brandAcid/10 text-brandAcid rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="lock" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-syne text-xl font-bold text-white uppercase">Área Restrita</h3>
+                <p class="text-gray-400 text-xs mt-1">Insira as credenciais de administrador</p>
+            </div>
+            <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">SENHA</label>
+                    <input type="password" id="admin-password" placeholder="Digite a senha (padrão: admin)" required class="w-full bg-brandDark border border-white/10 px-4 py-3 rounded text-sm text-white focus:outline-none focus:border-brandAcid">
+                </div>
+                <button type="submit" class="w-full py-3 bg-brandAcid hover:bg-white text-black font-bold text-sm tracking-widest uppercase rounded transition-colors duration-300">
+                    ACESSAR DASHBOARD
+                </button>
+            </form>
+        </div>
+
+        <!-- Dashboard Admin Principal -->
+        <div id="admin-dashboard-card" class="hidden bg-brandCard border border-white/10 w-full max-w-5xl rounded-lg relative z-10 flex flex-col max-h-[90vh] overflow-hidden transform scale-95 transition-all duration-300">
+            <!-- Header do Dashboard -->
+            <div class="p-6 border-b border-white/5 bg-brandDark/80 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h3 class="font-syne text-lg font-bold text-white uppercase tracking-wider">KRYPT™ CREATIVE STUDIO // DASHBOARD</h3>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="logoutAdmin()" class="px-3.5 py-1.5 border border-white/10 hover:border-red-500/30 hover:text-red-400 text-xs font-medium text-gray-400 rounded transition-all">Sair</button>
+                    <button onclick="toggleAdminModal()" class="text-gray-400 hover:text-white p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+            </div>
+
+            <!-- Conteúdo Split: Esquerda Formulário & Configurações, Direita Listagem -->
+            <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
+                <!-- Formulário (Adicionar / Editar) -->
+                <div class="w-full lg:w-5/12 p-6 border-r border-white/5 overflow-y-auto bg-brandDark/20 flex flex-col gap-8">
+                    <div>
+                        <div class="flex items-center gap-2 mb-6">
+                            <i data-lucide="plus-circle" class="text-brandAcid w-5 h-5"></i>
+                            <h4 id="form-action-title" class="text-sm font-bold text-white uppercase tracking-wider">Adicionar Novo Item</h4>
+                        </div>
+
+                        <form id="product-form" onsubmit="handleProductSubmit(event)" class="space-y-4">
+                            <input type="hidden" id="edit-product-id">
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Nome do Produto</label>
+                                <input type="text" id="form-name" required placeholder="Ex: KRYPT Oversized Tee - Shadow" class="w-full bg-brandDark border border-white/10 px-4 py-2.5 text-sm text-white rounded focus:outline-none focus:border-brandAcid">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Preço (R$)</label>
+                                    <input type="number" step="0.01" min="0" id="form-price" required placeholder="189.90" class="w-full bg-brandDark border border-white/10 px-4 py-2.5 text-sm text-white rounded focus:outline-none focus:border-brandAcid">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Categoria</label>
+                                    <select id="form-category" class="w-full bg-brandDark border border-white/10 px-4 py-2.5 text-sm text-white rounded focus:outline-none focus:border-brandAcid">
+                                        <option value="Oversized">Oversized</option>
+                                        <option value="Graphic Tees">Graphic Tees</option>
+                                        <option value="Acid Wash">Acid Wash</option>
+                                        <option value="Minimal">Minimal</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Descrição Curta</label>
+                                <textarea id="form-desc" rows="3" required placeholder="Fio 20.1 Penteado, gola grossa de 3cm..." class="w-full bg-brandDark border border-white/10 px-4 py-2.5 text-sm text-white rounded focus:outline-none focus:border-brandAcid resize-none"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Imagens Adicionais (Carrossel)</label>
+                                <input type="text" id="form-additional-imgs" placeholder="Ex: url1, url2, url3 (separadas por vírgula)" class="w-full bg-brandDark border border-white/10 px-4 py-2.5 text-sm text-white rounded focus:outline-none focus:border-brandAcid">
+                                <p class="text-[10px] text-gray-500 mt-1">Deixe em branco para usar apenas a imagem principal.</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Imagem Principal</label>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="document.getElementById('form-file-input').click()" class="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold uppercase tracking-wider text-white rounded transition-colors flex items-center gap-2">
+                                        <i data-lucide="upload" class="w-4 h-4"></i> Upload
+                                    </button>
+                                    <input type="file" id="form-file-input" accept="image/*" onchange="handleImageUpload(event)" class="hidden">
+                                    <input type="text" id="form-img-url" placeholder="Ou insira a URL da imagem" class="w-full bg-brandDark border border-white/10 px-4 py-2.5 text-sm text-white rounded focus:outline-none focus:border-brandAcid flex-1">
+                                </div>
+                                <div id="image-preview-container" class="mt-3 hidden p-2 bg-brandDark border border-white/10 rounded items-center justify-between">
+                                    <span class="text-xs text-gray-400 truncate max-w-[200px]" id="preview-image-name"></span>
+                                    <button type="button" onclick="clearUploadedImage()" class="text-red-400 hover:text-red-500 text-xs uppercase font-mono">Remover</button>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 flex gap-2">
+                                <button type="submit" class="flex-1 py-3 bg-brandAcid hover:bg-white text-black font-bold text-xs tracking-widest uppercase rounded transition-colors duration-300">
+                                    <span id="submit-btn-text">CADASTRAR PRODUTO</span>
+                                </button>
+                                <button type="button" id="cancel-edit-btn" onclick="cancelEditMode()" class="hidden px-4 py-3 border border-white/10 hover:border-white text-white text-xs font-bold tracking-widest uppercase rounded transition-colors">
+                                    CANCELAR
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Configuração Integrada do WhatsApp -->
+                    <div class="border-t border-white/10 pt-6">
+                        <div class="flex items-center gap-2 mb-4">
+                            <i data-lucide="message-square" class="text-brandAcid w-5 h-5"></i>
+                            <h4 class="text-sm font-bold text-white uppercase tracking-wider">CONFIGURAÇÃO DE VENDAS</h4>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">WhatsApp do Vendedor (DDI + DDD + Número)</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="admin-whatsapp-input" placeholder="Ex: 5511999999999" class="flex-1 bg-brandDark border border-white/10 px-4 py-2 text-sm text-white rounded focus:outline-none focus:border-brandAcid">
+                                    <button onclick="saveStoreConfig()" class="bg-brandAcid hover:bg-white text-black px-4 py-2 text-xs font-bold uppercase rounded transition-colors duration-300">
+                                        SALVAR
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-gray-500 mt-1">Insira somente números começando com 55 (DDI do Brasil).</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Produtos (Direita) -->
+                <div class="w-full lg:w-7/12 p-6 overflow-y-auto flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-6">
+                            <h4 class="text-sm font-bold text-white uppercase tracking-wider">Produtos Ativos no Sistema</h4>
+                            <span id="admin-total-badge" class="bg-brandAcid/10 text-brandAcid border border-brandAcid/20 text-xs px-3 py-0.5 rounded-full font-mono">0 itens</span>
+                        </div>
+                        
+                        <div class="border border-white/5 rounded-lg overflow-hidden bg-brandDark/40">
+                            <div class="max-h-[300px] overflow-y-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="border-b border-white/5 bg-brandDark/80 text-gray-400 text-xs uppercase tracking-wider">
+                                            <th class="py-3 px-4 font-semibold">Produto</th>
+                                            <th class="py-3 px-4 font-semibold">Preço</th>
+                                            <th class="py-3 px-4 font-semibold">Categoria</th>
+                                            <th class="py-3 px-4 font-semibold text-right">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-table-body" class="divide-y divide-white/5 text-sm text-gray-300">
+                                        <!-- Preenchido dinamicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Métricas Rápidas Estilo Streetwear -->
+                    <div class="mt-8 grid grid-cols-3 gap-4 border-t border-white/5 pt-6">
+                        <div class="bg-brandDark/80 p-4 border border-white/5 rounded">
+                            <span class="text-[10px] text-gray-500 block uppercase font-mono">Estoque Total</span>
+                            <span id="metric-total-items" class="text-xl font-bold text-white font-syne">0</span>
+                        </div>
+                        <div class="bg-brandDark/80 p-4 border border-white/5 rounded">
+                            <span class="text-[10px] text-gray-500 block uppercase font-mono">Itens no Carrinho</span>
+                            <span id="metric-cart-items" class="text-xl font-bold text-brandAcid font-syne">0</span>
+                        </div>
+                        <div class="bg-brandDark/80 p-4 border border-white/5 rounded">
+                            <span class="text-[10px] text-gray-500 block uppercase font-mono">Faturamento Simulado</span>
+                            <span id="metric-revenue" class="text-xl font-bold text-white font-syne">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRMATION MODAL -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 opacity-0 pointer-events-none transition-opacity duration-300">
+        <!-- Close Overlay -->
+        <div class="absolute inset-0" onclick="closeConfirmModal()"></div>
+        <div class="bg-brandCard border border-white/10 p-6 w-full max-w-sm rounded relative z-10 transform scale-95 transition-all duration-300 text-center">
+            <div class="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-syne text-lg font-bold text-white uppercase mb-2">Excluir Produto?</h3>
+            <p class="text-gray-400 text-xs mb-6">Esta ação não poderá ser desfeita. O produto será removido permanentemente de toda a base.</p>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 border border-white/10 hover:border-white text-white text-xs font-bold tracking-widest uppercase rounded transition-colors">Cancelar</button>
+                <button id="confirm-delete-btn" class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold tracking-widest uppercase rounded transition-colors">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- CONFIGURAÇÕES E LÓGICA DO JAVASCRIPT -->
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            if (typeof initApp === 'function') initApp();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,896 @@
+// 1. DADOS DE PRODUTOS PADRÃO (MOCKS INICIAIS COM MÚLTIPLAS FOTOS NO CARROSSEL)
+        const DEFAULT_PRODUCTS = [
+            {
+                id: "krypt-p1",
+                name: "KRYPT Oversized Tee",
+                price: 189.90,
+                category: "Oversized",
+                description: "Caimento estruturado com algodão premium 260GSM. Desenvolvido com modelagem boxy autoral, cor Raw Charcoal (Cinza Carbono Amaciado).",
+                image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop",
+                images: [
+                    "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=600&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1562157873-818bc0726f68?q=80&w=600&auto=format&fit=crop"
+                ]
+            },
+            {
+                id: "krypt-p2",
+                name: "Cyber Interface Tee",
+                price: 199.90,
+                category: "Graphic Tees",
+                description: "Design minimalista com estampa digital em verde Neon Acid de alto contraste na altura do tórax. Algodão pesado 20.1 penteado.",
+                image: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=600&auto=format&fit=crop",
+                images: [
+                    "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=600&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=600&auto=format&fit=crop"
+                ]
+            },
+            {
+                id: "krypt-p3",
+                name: "Minimal Raw Cotton",
+                price: 179.90,
+                category: "Minimal",
+                description: "Visual limpo e orgânico. Confeccionada em algodão cru texturizado, gola grossa de 3.2cm e caimento clássico streetwear.",
+                image: "https://images.unsplash.com/photo-1554568218-0f1715e72254?q=80&w=600&auto=format&fit=crop",
+                images: [
+                    "https://images.unsplash.com/photo-1554568218-0f1715e72254?q=80&w=600&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop"
+                ]
+            },
+            {
+                id: "krypt-p4",
+                name: "Brutalist Heavy Tee",
+                price: 209.90,
+                category: "Acid Wash",
+                description: "Lavagem industrial estonada de efeito único para cada peça. Costuras robustas contrastantes e visual agressivo e moderno.",
+                image: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=600&auto=format&fit=crop",
+                images: [
+                    "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=600&auto=format&fit=crop",
+                    "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=600&auto=format&fit=crop"
+                ]
+            }
+        ];
+
+        // 2. ESTADOS DA APLICAÇÃO
+        let products = [];
+        let cart = [];
+        let currentFilter = 'all';
+        let selectedProduct = null;
+        let selectedSize = 'M'; // Padrão
+        let isAdminAuthenticated = false;
+        let uploadedImageBase64 = null;
+        let whatsappSellerPhone = "5511999999999"; // Número padrão para o redirecionamento
+        
+        // Controle de Carrossel do Modal de Detalhe
+        let currentModalImageIndex = 0;
+        let modalImages = [];
+
+        // 3. INICIALIZAÇÃO DO APP
+        window.addEventListener('DOMContentLoaded', () => {
+            initProducts();
+            initCart();
+            initConfigs();
+            renderCategoryFilters();
+            renderCatalog();
+            renderFeaturedProduct();
+            lucide.createIcons();
+            updateHeaderScroll();
+            
+            // Event listener para scroll no Header
+            window.addEventListener('scroll', updateHeaderScroll);
+        });
+
+        // Efeito visual no Header ao descer a página
+        function updateHeaderScroll() {
+            const header = document.querySelector('header');
+            if (window.scrollY > 50) {
+                header.classList.add('bg-brandDark/95', 'py-4', 'shadow-lg');
+                header.classList.remove('bg-brandDark/85', 'py-6');
+            } else {
+                header.classList.add('bg-brandDark/85', 'py-6');
+                header.classList.remove('bg-brandDark/95', 'py-4', 'shadow-lg');
+            }
+        }
+
+        // 4. LÓGICA DE PRODUTOS NO SISTEMA (TRY/CATCH ADICIONADO PARA PREVENIR ERROS NO IFRAME DO CANVAS)
+        function initProducts() {
+            try {
+                const stored = localStorage.getItem('krypt_products');
+                if (stored) {
+                    products = JSON.parse(stored);
+                } else {
+                    products = [...DEFAULT_PRODUCTS];
+                    localStorage.setItem('krypt_products', JSON.stringify(products));
+                }
+            } catch (e) {
+                console.warn("localStorage inacessível ou bloqueado. Usando estado temporário em memória.");
+                products = [...DEFAULT_PRODUCTS];
+            }
+        }
+
+        function initConfigs() {
+            try {
+                const phone = localStorage.getItem('krypt_whatsapp_phone');
+                if (phone) {
+                    whatsappSellerPhone = phone;
+                }
+            } catch (e) {
+                console.warn("localStorage inacessível.");
+            }
+            const phoneInput = document.getElementById('admin-whatsapp-input');
+            if (phoneInput) phoneInput.value = whatsappSellerPhone;
+        }
+
+        function saveStoreConfig() {
+            const inputVal = document.getElementById('admin-whatsapp-input').value.trim();
+            // Validar apenas números
+            const cleaned = inputVal.replace(/\D/g, '');
+            if (cleaned.length < 10) {
+                showToast('Insira um número de WhatsApp válido com código de área.', 'error');
+                return;
+            }
+            whatsappSellerPhone = cleaned;
+            try {
+                localStorage.setItem('krypt_whatsapp_phone', whatsappSellerPhone);
+            } catch (e) {
+                console.warn("Não foi possível persistir as configurações.");
+            }
+            showToast('Configuração de WhatsApp atualizada!', 'success');
+        }
+
+        function saveProductsToStorage() {
+            try {
+                localStorage.setItem('krypt_products', JSON.stringify(products));
+            } catch (e) {
+                console.warn("Não foi possível salvar no localStorage devido a restrições do iframe.");
+            }
+            // Força a atualização de todos os elementos visuais de forma assíncrona segura
+            renderCatalog();
+            renderFeaturedProduct();
+            updateAdminTable();
+            updateCartUI(); 
+        }
+
+        // 5. RENDERIZADOR DO CATÁLOGO DE PRODUTOS NO CLIENTE
+        function renderCatalog() {
+            const grid = document.getElementById('product-grid');
+            const noProducts = document.getElementById('no-products');
+            
+            // Filtro reativo
+            const filtered = currentFilter === 'all' 
+                ? products 
+                : products.filter(p => p.category === currentFilter);
+
+            grid.innerHTML = '';
+
+            if (filtered.length === 0) {
+                noProducts.classList.remove('hidden');
+                grid.classList.add('hidden');
+                return;
+            } else {
+                noProducts.classList.add('hidden');
+                grid.classList.remove('hidden');
+            }
+
+            filtered.forEach((product, index) => {
+                const card = document.createElement('div');
+                card.className = `group bg-brandCard/40 border border-white/5 rounded-lg overflow-hidden flex flex-col justify-between hover:border-brandAcid/30 transition-all duration-300 relative transform hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,0,0,0.6)] animate-fade-in`;
+                card.style.animationDelay = `${index * 100}ms`;
+
+                card.innerHTML = `
+                    <div class="relative overflow-hidden aspect-square w-full bg-[#121214] flex items-center justify-center p-4">
+                        <!-- Categoria Badge -->
+                        <span class="absolute top-4 left-4 z-10 bg-brandDark/80 backdrop-blur border border-white/10 text-brandAcid text-[10px] font-bold tracking-widest px-2.5 py-1 rounded uppercase">
+                            ${product.category}
+                        </span>
+                        
+                        <!-- Imagem do Produto com Fallback de Ícone de Camiseta -->
+                        <img 
+                            src="${product.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop'}" 
+                            alt="${product.name}" 
+                            class="max-h-[220px] object-contain group-hover:scale-105 transition-transform duration-500 filter drop-shadow-[0_5px_15px_rgba(0,0,0,0.4)]"
+                            onerror="this.src='https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop'"
+                        >
+
+                        <!-- Hover overlay instantâneo -->
+                        <div class="absolute inset-0 bg-brandDark/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+                            <button onclick="openProductModal('${product.id}')" class="px-5 py-2.5 bg-white text-black font-semibold tracking-wider text-xs uppercase hover:bg-brandAcid transition-colors rounded">
+                                Visualizar Detalhes
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dados do cartão -->
+                    <div class="p-6 flex-1 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-syne text-sm font-bold text-white uppercase tracking-wider group-hover:text-brandAcid transition-colors mb-1 truncate">${product.name}</h3>
+                            <p class="text-xs text-gray-500 font-light line-clamp-2 mb-4">${product.description}</p>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-white/5">
+                            <span class="font-bold text-white font-mono">${formatPrice(product.price)}</span>
+                            <button onclick="quickAddToCart('${product.id}')" class="p-2 border border-white/10 hover:border-brandAcid hover:bg-brandAcid hover:text-black rounded transition-all duration-300" title="Compra Rápida">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        // 6. FILTROS DE CATEGORIA (GERENCIAMENTO)
+        function renderCategoryFilters() {
+            const categories = ['all', 'Oversized', 'Graphic Tees', 'Acid Wash', 'Minimal'];
+            const container = document.getElementById('category-filters');
+            container.innerHTML = '';
+
+            categories.forEach(cat => {
+                const button = document.createElement('button');
+                const label = cat === 'all' ? 'TODOS' : cat.toUpperCase();
+                
+                button.className = `px-5 py-2 text-xs font-semibold tracking-widest uppercase transition-all duration-300 rounded border ${
+                    currentFilter === cat 
+                        ? 'bg-brandAcid text-black border-brandAcid font-bold' 
+                        : 'bg-transparent text-gray-400 border-white/10 hover:border-white hover:text-white'
+                }`;
+                
+                button.innerHTML = label;
+                button.onclick = () => filterCategory(cat);
+                container.appendChild(button);
+            });
+        }
+
+        function filterCategory(cat) {
+            currentFilter = cat;
+            renderCategoryFilters();
+            renderCatalog();
+        }
+
+        // Helper: Formatar moeda Real (BRL)
+        function formatPrice(val) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+        }
+
+        // 7. SISTEMA DE TOASTS PERSONALIZADO (SEM USAR ALERT DO NAVEGADOR)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if(!container) return;
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'success' ? 'bg-[#141416] border-brandAcid/30' : 'bg-[#1D1014] border-red-500/20';
+            const iconColor = type === 'success' ? 'text-brandAcid' : 'text-red-500';
+            const iconName = type === 'success' ? 'check-circle' : 'alert-circle';
+
+            toast.className = `${bgColor} border px-5 py-4 rounded shadow-2xl flex items-center gap-3 animate-slide-up pointer-events-auto min-w-[300px] text-sm text-white`;
+            
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="${iconColor} w-5 h-5 shrink-0"></i>
+                <div class="flex-1 font-medium">${message}</div>
+                <button class="text-gray-500 hover:text-white transition-colors" onclick="this.parentElement.remove()"><i data-lucide="x" class="w-4 h-4"></i></button>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-[-10px]', 'transition-all', 'duration-300');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // 8. LÓGICA DO CARRINHO DE COMPRAS (SINCRO COM SEGURANÇA TRY-CATCH)
+        function initCart() {
+            try {
+                const stored = localStorage.getItem('krypt_cart');
+                if (stored) {
+                    cart = JSON.parse(stored);
+                }
+            } catch (e) {
+                console.warn("localStorage para carrinho bloqueado. Usando carrinho temporário em memória.");
+            }
+            updateCartUI();
+        }
+
+        function saveCartToStorage() {
+            try {
+                localStorage.setItem('krypt_cart', JSON.stringify(cart));
+            } catch (e) {
+                console.warn("Não foi possível persistir o carrinho.");
+            }
+            updateCartUI();
+        }
+
+        function toggleCart() {
+            const sidebar = document.getElementById('cart-sidebar');
+            const inner = document.getElementById('cart-panel');
+            
+            if (sidebar.classList.contains('opacity-0')) {
+                sidebar.classList.remove('opacity-0', 'pointer-events-none');
+                inner.classList.remove('translate-x-full');
+                document.body.classList.add('no-scroll');
+            } else {
+                sidebar.classList.add('opacity-0', 'pointer-events-none');
+                inner.classList.add('translate-x-full');
+                document.body.classList.remove('no-scroll');
+            }
+        }
+
+        function quickAddToCart(productId) {
+            addToCart(productId, 'M'); 
+        }
+
+        function addToCart(productId, size) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const existingItemIndex = cart.findIndex(item => item.id === productId && item.size === size);
+
+            if (existingItemIndex > -1) {
+                cart[existingItemIndex].quantity += 1;
+            } else {
+                cart.push({
+                    id: product.id,
+                    size: size,
+                    quantity: 1
+                });
+            }
+
+            saveCartToStorage();
+            showToast(`${product.name} (${size}) adicionado ao carrinho!`, 'success');
+        }
+
+        function updateCartQuantity(productId, size, offset) {
+            const index = cart.findIndex(item => item.id === productId && item.size === size);
+            if (index === -1) return;
+
+            cart[index].quantity += offset;
+
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
+            }
+
+            saveCartToStorage();
+        }
+
+        function removeCartItem(productId, size) {
+            cart = cart.filter(item => !(item.id === productId && item.size === size));
+            saveCartToStorage();
+            showToast('Item removido do carrinho.', 'success');
+        }
+
+        function clearCart() {
+            cart = [];
+            saveCartToStorage();
+            showToast('Carrinho limpo!', 'success');
+        }
+
+        function updateCartUI() {
+            const badge = document.getElementById('cart-badge');
+            const container = document.getElementById('cart-items-container');
+            const subtotalEl = document.getElementById('cart-subtotal');
+            const grandtotalEl = document.getElementById('cart-grandtotal');
+            const cartTotalItemsEl = document.getElementById('cart-total-items');
+
+            const detailedCart = cart.map(item => {
+                const product = products.find(p => p.id === item.id);
+                return {
+                    ...item,
+                    name: product ? product.name : "Produto Removido",
+                    price: product ? product.price : 0,
+                    image: product ? product.image : 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop'
+                };
+            });
+
+            const totalQty = detailedCart.reduce((acc, item) => acc + item.quantity, 0);
+            const subtotal = detailedCart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+            if (badge) {
+                badge.innerText = totalQty;
+                if (totalQty > 0) {
+                    badge.classList.remove('scale-0');
+                    badge.classList.add('scale-100');
+                } else {
+                    badge.classList.remove('scale-100');
+                    badge.classList.add('scale-0');
+                }
+            }
+            if (cartTotalItemsEl) cartTotalItemsEl.innerText = totalQty;
+
+            if (subtotalEl) subtotalEl.innerText = formatPrice(subtotal);
+            if (grandtotalEl) grandtotalEl.innerText = formatPrice(subtotal);
+
+            if (container) {
+                container.innerHTML = '';
+                
+                if (detailedCart.length === 0) {
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-20 text-center text-gray-500">
+                            <i data-lucide="shopping-bag" class="w-12 h-12 mb-3 opacity-20"></i>
+                            <p class="text-sm">Seu carrinho está vazio.</p>
+                            <a href="#catalogo" onclick="toggleCart()" class="text-xs text-brandAcid hover:underline uppercase tracking-widest mt-3">Comprar agora</a>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    updateMetrics();
+                    return;
+                }
+
+                detailedCart.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'flex items-center gap-4 bg-brandDark/50 p-3 rounded border border-white/5 relative group';
+                    itemDiv.innerHTML = `
+                        <img src="${item.image}" alt="${item.name}" class="w-16 h-16 object-contain bg-brandDark/80 p-1 border border-white/5 rounded">
+                        
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-start">
+                                <h4 class="text-sm font-bold text-white truncate uppercase tracking-wide pr-6">${item.name}</h4>
+                                <button onclick="removeCartItem('${item.id}', '${item.size}')" class="text-gray-500 hover:text-red-400 absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-[10px] bg-brandAcid/10 text-brandAcid font-bold border border-brandAcid/10 px-1.5 py-0.2 rounded font-mono">${item.size}</span>
+                                <span class="text-xs text-gray-400 font-mono">${formatPrice(item.price)}</span>
+                            </div>
+
+                            <div class="flex items-center justify-between mt-3">
+                                <div class="flex items-center border border-white/10 rounded overflow-hidden">
+                                    <button onclick="updateCartQuantity('${item.id}', '${item.size}', -1)" class="px-2 py-1 bg-white/5 hover:bg-white/10 text-white"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                                    <span class="px-3 text-xs font-mono font-bold text-white">${item.quantity}</span>
+                                    <button onclick="updateCartQuantity('${item.id}', '${item.size}', 1)" class="px-2 py-1 bg-white/5 hover:bg-white/10 text-white"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                                </div>
+                                <span class="text-sm font-bold text-white font-mono">${formatPrice(item.price * item.quantity)}</span>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(itemDiv);
+                });
+            }
+
+            lucide.createIcons();
+            updateMetrics();
+        }
+
+        // NOVO RECURSO: Integração de Finalização de Carrinho para Mensagem Estruturada de WhatsApp
+        function checkoutCart() {
+            if (cart.length === 0) {
+                showToast('Seu carrinho está vazio!', 'error');
+                return;
+            }
+
+            // Resolver itens e seus detalhes de fotos/preços atualizados
+            const detailedCart = cart.map(item => {
+                const product = products.find(p => p.id === item.id);
+                return {
+                    ...item,
+                    name: product ? product.name : "Produto Desconhecido",
+                    price: product ? product.price : 0
+                };
+            });
+
+            const total = detailedCart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+            // Montar Copy do Pedido Estruturado Brutalista/Minimalista para WhatsApp
+            let textMessage = `*KRYPT™ STUDIO — NOVO PEDIDO* ⚡\n`;
+            textMessage += `===============================\n\n`;
+            textMessage += `Olá! Gostaria de finalizar a compra dos seguintes itens:\n\n`;
+
+            detailedCart.forEach((item, index) => {
+                textMessage += `*${index + 1}. ${item.name.toUpperCase()}*\n`;
+                textMessage += `   • Qtd: ${item.quantity}\n`;
+                textMessage += `   • Tam: [ ${item.size} ]\n`;
+                textMessage += `   • Valor Un: ${formatPrice(item.price)}\n`;
+                textMessage += `   • Subtotal: ${formatPrice(item.price * item.quantity)}\n\n`;
+            });
+
+            textMessage += `===============================\n`;
+            textMessage += `📦 *Frete:* Grátis (Promoção Ativa)\n`;
+            textMessage += `🔥 *TOTAL GERAL:* ${formatPrice(total)}\n\n`;
+            textMessage += `Aguardo instruções para pagamento (Pix) e envio!`;
+
+            // Codificar texto para link web
+            const encodedText = encodeURIComponent(textMessage);
+            const whatsappUrl = `https://api.whatsapp.com/send?phone=${whatsappSellerPhone}&text=${encodedText}`;
+
+            // Abrir em nova aba/aplicativo
+            window.open(whatsappUrl, '_blank');
+
+            // Limpar carrinho e fechar sidebar pós-checkout
+            showToast('Pedido exportado para o WhatsApp!', 'success');
+            cart = [];
+            saveCartToStorage();
+            toggleCart();
+        }
+
+        // CARROSSEL DINÂMICO DE IMAGENS NO MODAL
+        function openProductModal(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            selectedProduct = product;
+            selectedSize = 'M';
+
+            modalImages = product.images && product.images.length > 0 
+                ? product.images 
+                : [product.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop'];
+            
+            currentModalImageIndex = 0;
+            updateModalImage();
+
+            document.getElementById('modal-product-category').innerText = product.category;
+            document.getElementById('modal-product-title').innerText = product.name;
+            document.getElementById('modal-product-price').innerText = formatPrice(product.price);
+            document.getElementById('modal-product-description').innerText = product.description;
+
+            selectSize('M');
+
+            const modal = document.getElementById('product-modal');
+            const inner = modal.querySelector('.bg-brandCard');
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            inner.classList.remove('scale-95');
+            document.body.classList.add('no-scroll');
+            
+            lucide.createIcons();
+        }
+
+        function updateModalImage() {
+            const imgEl = document.getElementById('modal-product-img');
+            const thumbnailsContainer = document.getElementById('modal-thumbnails');
+            
+            imgEl.classList.add('opacity-0', 'scale-95');
+            
+            setTimeout(() => {
+                imgEl.src = modalImages[currentModalImageIndex];
+                imgEl.classList.remove('opacity-0', 'scale-95');
+            }, 150);
+
+            thumbnailsContainer.innerHTML = '';
+            
+            if (modalImages.length > 1) {
+                modalImages.forEach((img, index) => {
+                    const thumb = document.createElement('button');
+                    thumb.className = `w-12 h-12 rounded border bg-brandDark p-1 overflow-hidden transition-all duration-300 shrink-0 ${
+                        index === currentModalImageIndex 
+                            ? 'border-brandAcid scale-110' 
+                            : 'border-white/10 hover:border-white/50 opacity-60 hover:opacity-100'
+                    }`;
+                    thumb.innerHTML = `<img src="${img}" class="w-full h-full object-contain">`;
+                    thumb.onclick = (e) => {
+                        e.stopPropagation();
+                        currentModalImageIndex = index;
+                        updateModalImage();
+                    };
+                    thumbnailsContainer.appendChild(thumb);
+                });
+            }
+        }
+
+        function prevModalImage(event) {
+            if (event) event.stopPropagation();
+            currentModalImageIndex = (currentModalImageIndex - 1 + modalImages.length) % modalImages.length;
+            updateModalImage();
+        }
+
+        function nextModalImage(event) {
+            if (event) event.stopPropagation();
+            currentModalImageIndex = (currentModalImageIndex + 1) % modalImages.length;
+            updateModalImage();
+        }
+
+        function closeProductModal() {
+            const modal = document.getElementById('product-modal');
+            const inner = modal.querySelector('.bg-brandCard');
+
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            inner.classList.add('scale-95');
+            document.body.classList.remove('no-scroll');
+            selectedProduct = null;
+        }
+
+        function selectSize(size) {
+            selectedSize = size;
+            const buttons = document.querySelectorAll('.size-btn');
+            buttons.forEach(btn => {
+                if (btn.innerText === size) {
+                    btn.className = 'size-btn px-4 py-2.5 border border-brandAcid text-brandAcid text-sm font-semibold rounded bg-brandAcid/10 transition-all duration-300';
+                } else {
+                    btn.className = 'size-btn px-4 py-2.5 border border-white/10 hover:border-brandAcid text-sm font-semibold rounded bg-brandDark text-white transition-all duration-300';
+                }
+            });
+        }
+
+        function addCurrentToCart() {
+            if (selectedProduct) {
+                addToCart(selectedProduct.id, selectedSize);
+                closeProductModal();
+            }
+        }
+
+        // 10. PAINEL ADMIN (LÓGICA E SEGURANÇA)
+        function toggleAdminModal() {
+            const modal = document.getElementById('admin-modal');
+            
+            if (modal.classList.contains('opacity-0')) {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                document.body.classList.add('no-scroll');
+                
+                if (isAdminAuthenticated) {
+                    showAdminDashboard();
+                } else {
+                    showAdminAuth();
+                }
+            } else {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                document.body.classList.remove('no-scroll');
+            }
+        }
+
+        function showAdminAuth() {
+            document.getElementById('admin-auth-card').classList.remove('hidden');
+            document.getElementById('admin-dashboard-card').classList.add('hidden');
+        }
+
+        function showAdminDashboard() {
+            document.getElementById('admin-auth-card').classList.add('hidden');
+            document.getElementById('admin-dashboard-card').classList.remove('hidden');
+            updateAdminTable();
+            updateMetrics();
+        }
+
+        function handleAdminLogin(event) {
+            event.preventDefault();
+            const password = document.getElementById('admin-password').value;
+
+            if (password === 'admin') {
+                isAdminAuthenticated = true;
+                showToast('Acesso de Administrador garantido!', 'success');
+                showAdminDashboard();
+                document.getElementById('admin-password').value = '';
+            } else {
+                showToast('Senha de administrador incorreta!', 'error');
+            }
+        }
+
+        function logoutAdmin() {
+            isAdminAuthenticated = false;
+            showToast('Sessão encerrada com sucesso.', 'success');
+            showAdminAuth();
+        }
+
+        // 11. SISTEMA CRUD DE PRODUTOS PELO ADMIN
+        function updateAdminTable() {
+            const tbody = document.getElementById('admin-table-body');
+            tbody.innerHTML = '';
+
+            document.getElementById('admin-total-badge').innerText = `${products.length} itens`;
+
+            products.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-white/5 transition-colors border-b border-white/5';
+                tr.innerHTML = `
+                    <td class="py-4 px-4 flex items-center gap-3">
+                        <img src="${p.image}" alt="${p.name}" class="w-10 h-10 object-contain bg-brandDark rounded p-1 border border-white/5 shrink-0">
+                        <div class="truncate max-w-[180px]">
+                            <span class="font-bold text-white block truncate uppercase">${p.name}</span>
+                            <span class="text-[10px] text-gray-500 font-mono block">${p.id}</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 font-mono font-bold text-white">${formatPrice(p.price)}</td>
+                    <td class="py-4 px-4">
+                        <span class="text-[10px] font-bold text-brandAcid bg-brandAcid/10 px-2 py-1 rounded border border-brandAcid/10 uppercase tracking-widest">${p.category}</span>
+                    </td>
+                    <td class="py-4 px-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="enterEditMode('${p.id}')" class="p-2 border border-white/10 hover:border-brandAcid hover:text-brandAcid rounded transition-all" title="Editar"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                            <button onclick="deleteProduct('${p.id}')" class="p-2 border border-white/10 hover:border-red-500 hover:text-red-400 rounded transition-all" title="Excluir"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            lucide.createIcons();
+        }
+
+        function updateMetrics() {
+            const totalItemsEl = document.getElementById('metric-total-items');
+            const cartItemsEl = document.getElementById('metric-cart-items');
+            const revenueEl = document.getElementById('metric-revenue');
+
+            if(totalItemsEl) totalItemsEl.innerText = products.length;
+            
+            const detailedCart = cart.map(item => {
+                const product = products.find(p => p.id === item.id);
+                return {
+                    ...item,
+                    price: product ? product.price : 0
+                };
+            });
+
+            const totalQty = detailedCart.reduce((acc, item) => acc + item.quantity, 0);
+            if(cartItemsEl) cartItemsEl.innerText = totalQty;
+
+            const totalRevenue = detailedCart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            if(revenueEl) revenueEl.innerText = formatPrice(totalRevenue);
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedImageBase64 = e.target.result;
+                document.getElementById('form-img-url').value = ''; 
+                document.getElementById('form-img-url').disabled = true;
+                
+                const preview = document.getElementById('image-preview-container');
+                preview.classList.remove('hidden');
+                preview.classList.add('flex');
+                document.getElementById('preview-image-name').innerText = file.name;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearUploadedImage() {
+            uploadedImageBase64 = null;
+            document.getElementById('form-file-input').value = '';
+            document.getElementById('form-img-url').disabled = false;
+            
+            const preview = document.getElementById('image-preview-container');
+            preview.classList.add('hidden');
+            preview.classList.remove('flex');
+        }
+
+        function handleProductSubmit(event) {
+            event.preventDefault();
+
+            const editId = document.getElementById('edit-product-id').value;
+            const name = document.getElementById('form-name').value;
+            const price = parseFloat(document.getElementById('form-price').value);
+            const category = document.getElementById('form-category').value;
+            const desc = document.getElementById('form-desc').value;
+            
+            let imageUrl = document.getElementById('form-img-url').value;
+            if (uploadedImageBase64) {
+                imageUrl = uploadedImageBase64;
+            } else if (!imageUrl) {
+                imageUrl = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop';
+            }
+
+            // Processar fotos do carrossel
+            const additionalImgsVal = document.getElementById('form-additional-imgs').value;
+            const additionalImages = additionalImgsVal 
+                ? additionalImgsVal.split(',').map(url => url.trim()).filter(url => url.length > 0)
+                : [];
+
+            // A primeira foto do array de carrossel é a principal
+            const allImages = [imageUrl, ...additionalImages];
+
+            if (editId) {
+                const index = products.findIndex(p => p.id === editId);
+                if (index > -1) {
+                    products[index] = {
+                        ...products[index],
+                        name,
+                        price,
+                        category,
+                        description: desc,
+                        image: imageUrl,
+                        images: allImages
+                    };
+                    showToast('Produto atualizado com sucesso!', 'success');
+                }
+            } else {
+                const newProduct = {
+                    id: 'krypt-' + Date.now(),
+                    name,
+                    price,
+                    category,
+                    description: desc,
+                    image: imageUrl,
+                    images: allImages
+                };
+                products.push(newProduct);
+                showToast('Novo produto cadastrado!', 'success');
+            }
+
+            saveProductsToStorage();
+            cancelEditMode();
+        }
+
+        function enterEditMode(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            document.getElementById('form-action-title').innerText = 'Editar Produto';
+            document.getElementById('submit-btn-text').innerText = 'ATUALIZAR INFORMAÇÕES';
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+            document.getElementById('edit-product-id').value = product.id;
+            document.getElementById('form-name').value = product.name;
+            document.getElementById('form-price').value = product.price;
+            document.getElementById('form-category').value = product.category;
+            document.getElementById('form-desc').value = product.description;
+            
+            // Renderiza fotos adicionais no input do admin (ignorando a primeira que é a de capa/principal)
+            const additionalImages = product.images ? product.images.slice(1) : [];
+            document.getElementById('form-additional-imgs').value = additionalImages.join(', ');
+            
+            if (product.image && product.image.startsWith('data:image')) {
+                uploadedImageBase64 = product.image;
+                document.getElementById('form-img-url').value = '';
+                document.getElementById('form-img-url').disabled = true;
+                const preview = document.getElementById('image-preview-container');
+                preview.classList.remove('hidden');
+                preview.classList.add('flex');
+                document.getElementById('preview-image-name').innerText = 'Imagem Base64 Salva';
+            } else {
+                clearUploadedImage();
+                document.getElementById('form-img-url').value = product.image || '';
+            }
+        }
+
+        function cancelEditMode() {
+            document.getElementById('form-action-title').innerText = 'Adicionar Novo Item';
+            document.getElementById('submit-btn-text').innerText = 'CADASTRAR PRODUTO';
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+
+            document.getElementById('edit-product-id').value = '';
+            document.getElementById('form-additional-imgs').value = '';
+            document.getElementById('product-form').reset();
+            clearUploadedImage();
+        }
+
+        let productToDeleteId = null;
+
+        function deleteProduct(productId) {
+            productToDeleteId = productId;
+            const modal = document.getElementById('confirm-modal');
+            const inner = modal.querySelector('div');
+            
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            inner.classList.remove('scale-95');
+            document.body.classList.add('no-scroll');
+            
+            // Vincular ação ao botão de confirmação
+            document.getElementById('confirm-delete-btn').onclick = () => {
+                if (productToDeleteId) {
+                    products = products.filter(p => p.id !== productToDeleteId);
+                    saveProductsToStorage();
+                    showToast('Produto removido com sucesso.', 'success');
+                }
+                closeConfirmModal();
+            };
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirm-modal');
+            const inner = modal.querySelector('div');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            inner.classList.add('scale-95');
+            document.body.classList.remove('no-scroll');
+            productToDeleteId = null;
+        }
+
+        function renderFeaturedProduct() {
+            const featured = products.find(p => p.id === 'krypt-p1') || products[0];
+            if (!featured) return;
+
+            const titleEl = document.getElementById('featured-product-title');
+            const descEl = document.getElementById('featured-product-desc');
+            const bannerImgEl = document.getElementById('featured-product-banner-img');
+            
+            if (titleEl) titleEl.innerText = featured.name;
+            if (descEl) descEl.innerText = featured.description;
+            if (bannerImgEl) {
+                bannerImgEl.style.backgroundImage = `url('${featured.image}')`;
+                bannerImgEl.style.backgroundSize = 'contain';
+                bannerImgEl.style.backgroundPosition = 'center';
+                bannerImgEl.style.backgroundRepeat = 'no-repeat';
+            }
+        }

@@ -1,0 +1,30 @@
+/* Custom scrollbar para manter estética limpa */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0A0B;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272A;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #D4FC34;
+        }
+        
+        .glow-acid:hover {
+            box-shadow: 0 0 15px rgba(212, 252, 52, 0.4);
+        }
+        
+        /* Prevenir scroll quando modal aberto */
+        .no-scroll {
+            overflow: hidden;
+        }
+
+        #no-products {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
